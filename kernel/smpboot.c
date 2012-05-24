@@ -32,11 +32,19 @@ per_cpu(idle_threads, smp_processor_id()) = current;
 }
 
 /**
+<<<<<<< HEAD
 * idle_init - Initialize the idle thread for a cpu
 * @cpu: The cpu for which the idle thread should be initialized
 *
 * Creates the thread if it does not exist.
 */
+=======
+ * idle_init - Initialize the idle thread for a cpu
+ * @cpu:	The cpu for which the idle thread should be initialized
+ *
+ * Creates the thread if it does not exist.
+ */
+>>>>>>> eeb217d... smpboot, idle: Fix comment mismatch over idle_threads_init()
 static inline void idle_init(unsigned int cpu)
 {
 struct task_struct *tsk = per_cpu(idle_threads, cpu);
@@ -51,8 +59,13 @@ per_cpu(idle_threads, cpu) = tsk;
 }
 
 /**
+<<<<<<< HEAD
 * idle_threads_init - Initialize idle threads for all cpus
 */
+=======
+ * idle_threads_init - Initialize idle threads for all cpus
+ */
+>>>>>>> eeb217d... smpboot, idle: Fix comment mismatch over idle_threads_init()
 void __init idle_threads_init(void)
 {
 unsigned int cpu, boot_cpu;
