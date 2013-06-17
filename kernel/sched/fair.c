@@ -2323,7 +2323,7 @@ static unsigned long power_of(int cpu)
 static unsigned long cpu_avg_load_per_task(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
-	unsigned long nr_running = ACCESS_ONCE(rq->cfs.h_nr_running);
+	unsigned long nr_running = ACCESS_ONCE(rq->nr_running);
 
 	if (nr_running)
 		return rq->load.weight / nr_running;
@@ -2331,23 +2331,6 @@ static unsigned long cpu_avg_load_per_task(int cpu)
 	return 0;
 }
 
-static void record_wakee(struct task_struct *p)
-{
-	/*
-	 * Rough decay (wiping) for cost saving, don't worry
-	 * about the boundary, really active task won't care
-	 * about the loss.
-	 */
-	if (jiffies > current->wakee_flip_decay_ts + HZ) {
-		current->wakee_flips = 0;
-		current->wakee_flip_decay_ts = jiffies;
-	}
-
-	if (current->last_wakee != p) {
-		current->last_wakee = p;
-		current->wakee_flips++;
-	}
-}
 
 static void task_waking_fair(struct task_struct *p)
 {
@@ -2368,7 +2351,6 @@ static void task_waking_fair(struct task_struct *p)
 #endif
 
 	se->vruntime -= min_vruntime;
-	record_wakee(p);
 }
 
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -2487,28 +2469,6 @@ static inline unsigned long effective_load(struct task_group *tg, int cpu,
 
 #endif
 
-static int wake_wide(struct task_struct *p)
-{
-	int factor = this_cpu_read(sd_llc_size);
-
-	/*
-	 * Yeah, it's the switching-frequency, could means many wakee or
-	 * rapidly switch, use factor here will just help to automatically
-	 * adjust the loose-degree, so bigger node will lead to more pull.
-	 */
-	if (p->wakee_flips > factor) {
-		/*
-		 * wakee is somewhat hot, it needs certain amount of cpu
-		 * resource, so if waker is far more hot, prefer to leave
-		 * it alone.
-		 */
-		if (current->wakee_flips > (factor * p->wakee_flips))
-			return 1;
-	}
-
-	return 0;
-}
-
 static int wake_affine(struct sched_domain *sd, struct task_struct *p, int sync)
 {
 	s64 this_load, load;
@@ -2517,13 +2477,6 @@ static int wake_affine(struct sched_domain *sd, struct task_struct *p, int sync)
 	struct task_group *tg;
 	unsigned long weight;
 	int balanced;
-
-	/*
-	 * If we wake multiple tasks be careful to not bounce
-	 * ourselves around too much.
-	 */
-	if (wake_wide(p))
-		return 0;
 
 	idx	  = sd->wake_idx;
 	this_cpu  = smp_processor_id();
@@ -3027,7 +2980,7 @@ static struct task_struct *pick_next_task_fair(struct rq *rq)
 	struct cfs_rq *cfs_rq = &rq->cfs;
 	struct sched_entity *se;
 
-	if (!cfs_rq->h_nr_running)
+	if (!cfs_rq->nr_running)
 		return NULL;
 
 	do {
@@ -3826,7 +3779,7 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 			int local_group, const struct cpumask *cpus,
 			int *balance, struct sg_lb_stats *sgs)
 {
-	unsigned long scaled_load, load, max_cpu_load, min_cpu_load, max_nr_running;
+	unsigned long load, max_cpu_load, min_cpu_load, max_nr_running;
 	int i;
 	unsigned int balance_cpu = -1, first_idle_cpu = 0;
 	unsigned long avg_load_per_task = 0;
@@ -3852,18 +3805,16 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 			load = target_load(i, load_idx);
 		} else {
 			load = source_load(i, load_idx);
-			scaled_load = load * SCHED_POWER_SCALE
-					/ cpu_rq(i)->cpu_power;
-			if (scaled_load > max_cpu_load) {
-				max_cpu_load = scaled_load;
-				max_nr_running = rq->cfs.h_nr_running;
+			if (load > max_cpu_load) {
+				max_cpu_load = load;
+				max_nr_running = rq->nr_running;
 			}
-			if (min_cpu_load > scaled_load)
-				min_cpu_load = scaled_load;
+			if (min_cpu_load > load)
+				min_cpu_load = load;
 		}
 
 		sgs->group_load += load;
-		sgs->sum_nr_running += rq->cfs.h_nr_running;
+		sgs->sum_nr_running += rq->nr_running;
 		sgs->sum_weighted_load += weighted_cpuload(i);
 		if (idle_cpu(i))
 			sgs->idle_cpus++;
@@ -3898,11 +3849,8 @@ static inline void update_sg_lb_stats(struct sched_domain *sd,
 	 *      normalized nr_running number somewhere that negates
 	 *      the hierarchy?
 	 */
-	if (sgs->sum_nr_running) {
-		avg_load_per_task = sgs->sum_weighted_load * SCHED_POWER_SCALE
-					/ group->sgp->power;
-		avg_load_per_task /= sgs->sum_nr_running;
-	}
+	if (sgs->sum_nr_running)
+		avg_load_per_task = sgs->sum_weighted_load / sgs->sum_nr_running;
 
 	if ((max_cpu_load - min_cpu_load) >= avg_load_per_task && max_nr_running > 1)
 		sgs->group_imb = 1;
@@ -4094,7 +4042,7 @@ static inline void fix_small_imbalance(struct sd_lb_stats *sds,
 {
 	unsigned long tmp, pwr_now = 0, pwr_move = 0;
 	unsigned int imbn = 2;
-	unsigned long scaled_busy_load_per_task, scaled_this_load_per_task;
+	unsigned long scaled_busy_load_per_task;
 
 	if (sds->this_nr_running) {
 		sds->this_load_per_task /= sds->this_nr_running;
@@ -4115,9 +4063,6 @@ static inline void fix_small_imbalance(struct sd_lb_stats *sds,
 		return;
 	}
 
-	scaled_this_load_per_task = sds->this_load_per_task
-					 * SCHED_POWER_SCALE;
-	scaled_this_load_per_task /= sds->this->sgp->power;
 	/*
 	 * OK, we don't have enough imbalance to justify moving tasks,
 	 * however we may be able to increase total CPU power used by
@@ -4125,35 +4070,28 @@ static inline void fix_small_imbalance(struct sd_lb_stats *sds,
 	 */
 
 	pwr_now += sds->busiest->sgp->power *
-			min(scaled_busy_load_per_task, sds->max_load);
+			min(sds->busiest_load_per_task, sds->max_load);
 	pwr_now += sds->this->sgp->power *
-			min(scaled_this_load_per_task, sds->this_load);
+			min(sds->this_load_per_task, sds->this_load);
 	pwr_now /= SCHED_POWER_SCALE;
 
 	/* Amount of load we'd subtract */
 	if (sds->max_load > scaled_busy_load_per_task) {
 		pwr_move += sds->busiest->sgp->power *
-			min(scaled_busy_load_per_task,
+			min(sds->busiest_load_per_task,
 				sds->max_load - scaled_busy_load_per_task);
-		tmp = scaled_busy_load_per_task;
+		tmp = (sds->busiest_load_per_task * SCHED_POWER_SCALE) /
+			sds->this->sgp->power;
 	} else
-		tmp = sds->max_load;
+		tmp = (sds->max_load * sds->busiest->sgp->power) /
+			sds->this->sgp->power;
 
-	/* Scale to this queue from busiest queue */
-	tmp = (tmp * sds->busiest->sgp->power) /
-		sds->this->sgp->power;
 	/* Amount of load we'd add */
 	pwr_move += sds->this->sgp->power *
-			min(scaled_this_load_per_task, sds->this_load + tmp);
+			min(sds->this_load_per_task, sds->this_load + tmp);
 	pwr_move /= SCHED_POWER_SCALE;
 
 	/* Move if we gain throughput */
-	/*
-	 * The only possibilty for below statement be true, is:
-	 * sds->max_load is larger than scaled_busy_load_per_task, while,
-	 * scaled_this_load_per_task is larger than sds->this_load plus by
-	 * the scaled scaled_busy_load_per_task moved into this queue
-	 */
 	if (pwr_move > pwr_now)
 		*imbalance = sds->busiest_load_per_task;
 }
@@ -4378,7 +4316,7 @@ find_busiest_queue(struct sched_domain *sd, struct sched_group *group,
 		 * When comparing with imbalance, use weighted_cpuload()
 		 * which is not scaled with the cpu power.
 		 */
-		if (capacity && rq->cfs.h_nr_running == 1 && wl > imbalance)
+		if (capacity && rq->nr_running == 1 && wl > imbalance)
 			continue;
 
 		/*
@@ -4498,11 +4436,10 @@ redo:
 	schedstat_add(sd, lb_imbalance[idle], imbalance);
 
 	ld_moved = 0;
-	/* load balance only apply to CFS task, we use h_nr_running here */
-	if (busiest->cfs.h_nr_running > 1) {
+	if (busiest->nr_running > 1) {
 		/*
 		 * Attempt to move tasks. If find_busiest_group has found
-		 * an imbalance but busiest->cfs.h_nr_running <= 1, the group is
+		 * an imbalance but busiest->nr_running <= 1, the group is
 		 * still unbalanced. ld_moved simply stays zero, so it is
 		 * correctly treated as an imbalance.
 		 */
@@ -4510,8 +4447,7 @@ redo:
 		env.load_move	= imbalance;
 		env.src_cpu	= busiest->cpu;
 		env.src_rq	= busiest;
-		env.loop_max  = min_t(unsigned long, sysctl_sched_nr_migrate,
-					busiest->cfs.h_nr_running);
+		env.loop_max	= min_t(unsigned long, sysctl_sched_nr_migrate, busiest->nr_running);
 
 more_balance:
 		local_irq_save(flags);
@@ -4636,11 +4572,10 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 	struct sched_domain *sd;
 	int pulled_task = 0;
 	unsigned long next_balance = jiffies + HZ;
-	u64 curr_cost = 0;
 
 	this_rq->idle_stamp = this_rq->clock;
 
-	if (this_rq->avg_idle < this_rq->max_idle_balance_cost)
+	if (this_rq->avg_idle < sysctl_sched_migration_cost)
 		return;
 
 	/*
@@ -4653,27 +4588,14 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 	for_each_domain(this_cpu, sd) {
 		unsigned long interval;
 		int balance = 1;
-		u64 t0, domain_cost;
 
 		if (!(sd->flags & SD_LOAD_BALANCE))
 			continue;
 
-		if (this_rq->avg_idle < curr_cost + sd->max_newidle_lb_cost)
-			break;
-
 		if (sd->flags & SD_BALANCE_NEWIDLE) {
-			t0 = sched_clock_cpu(smp_processor_id());
-
 			/* If we've pulled tasks over stop searching: */
 			pulled_task = load_balance(this_cpu, this_rq,
 						   sd, CPU_NEWLY_IDLE, &balance);
-
-			domain_cost = sched_clock_cpu(smp_processor_id()) - t0;
-
-			if (domain_cost > sd->max_newidle_lb_cost)
-				sd->max_newidle_lb_cost = domain_cost;
-
-			curr_cost += domain_cost;
 		}
 
 		interval = msecs_to_jiffies(sd->balance_interval);
@@ -4695,9 +4617,6 @@ void idle_balance(int this_cpu, struct rq *this_rq)
 		 */
 		this_rq->next_balance = next_balance;
 	}
-
-	if (curr_cost > this_rq->max_idle_balance_cost)
-		this_rq->max_idle_balance_cost = curr_cost;
 }
 
 /*
@@ -4722,7 +4641,7 @@ static int active_load_balance_cpu_stop(void *data)
 		goto out_unlock;
 
 	/* Is there any task to move? */
-	if (busiest_rq->cfs.h_nr_running == 0)
+	if (busiest_rq->nr_running <= 1)
 		goto out_unlock;
 
 	/*
@@ -5011,38 +4930,14 @@ static void rebalance_domains(int cpu, enum cpu_idle_type idle)
 	/* Earliest time when we have to do rebalance again */
 	unsigned long next_balance = jiffies + 60*HZ;
 	int update_next_balance = 0;
-	int need_serialize, need_decay = 0;
-	u64 max_cost = 0;
+	int need_serialize;
 
 	update_shares(cpu);
 
 	rcu_read_lock();
 	for_each_domain(cpu, sd) {
-		/*
-		 * Decay the newidle max times here because this is a regular
-		 * visit to all the domains. Decay ~0.5% per second.
-		 */
-		if (time_after(jiffies, sd->next_decay_max_lb_cost)) {
-			sd->max_newidle_lb_cost =
-			(sd->max_newidle_lb_cost * 254) / 256;
-			sd->next_decay_max_lb_cost = jiffies + HZ;
-			need_decay = 1;
-		}
-		max_cost += sd->max_newidle_lb_cost;
-
 		if (!(sd->flags & SD_LOAD_BALANCE))
 			continue;
-
-		/*
-		 * Stop the load balance at this level. There is another
-		 * * CPU in our sched group which is doing load balancing more
-		 * actively.
-		 */
-		if (!balance) {
-			if (need_decay)
-				continue;
-			break;
-		}
 
 		interval = sd->balance_interval;
 		if (idle != CPU_IDLE)
@@ -5076,14 +4971,14 @@ out:
 			next_balance = sd->last_balance + interval;
 			update_next_balance = 1;
 		}
-	}
-	if (need_decay) {
+
 		/*
-		 * Ensure the rq-wide value also decays but keep it at a
-		 * reasonable floor to avoid funnies with rq->avg_idle.
+		 * Stop the load balance at this level. There is another
+		 * CPU in our sched group which is doing load balancing more
+		 * actively.
 		 */
-		rq->max_idle_balance_cost =
-			max((u64)sysctl_sched_migration_cost, max_cost);
+		if (!balance)
+			break;
 	}
 	rcu_read_unlock();
 
