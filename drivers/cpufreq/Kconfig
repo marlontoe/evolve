@@ -136,6 +136,12 @@ config CPU_FREQ_DEFAULT_GOV_SMARTASS2
 	help
 	  Use the CPUFreq governor 'smartassV2' as default.
 
+config CPU_FREQ_DEFAULT_GOV_SAKURACTIVE
+    bool "sakuractive"
+    select CPU_FREQ_GOV_SAKURACTIVE
+    help
+     If in doubt, say N.
+
 config CPU_FREQ_DEFAULT_GOV_ADAPTIVE
 	bool "adaptive"
 	select CPU_FREQ_GOV_ADAPTIVE
@@ -319,7 +325,6 @@ config CPU_FREQ_GOV_ADAPTIVE
 	  'adaptive' - This driver adds a dynamic cpufreq policy governor
 	  designed for latency-sensitive workloads and also for demanding
 	  performance.
-
 	  This governor attempts to reduce the latency of clock
 	  increases so that the system is more responsive to
 	  interactive workloads in loweset steady-state but to
@@ -333,6 +338,12 @@ config CPU_FREQ_GOV_ADAPTIVE
 	  For details, take a look at linux/Documentation/cpu-freq.
 
 	  If in doubt, say N.
+
+config CPU_FREQ_GOV_SAKURACTIVE
+    tristate "'sakuractive' cpufreq governor"
+    depends on CPU_FREQ
+    help
+
 
 config CPU_FREQ_GOV_INTELLIACTIVE
 	tristate "'intelliactive' cpufreq policy governor"
