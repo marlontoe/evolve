@@ -1283,17 +1283,17 @@ static const char * const voice_rx[] = {
     "speaker", 
     "headset", 
     "bt-sco-headset", 
-    "voice-tty-headset",
+    "tty-headset",
 };
 static const char * const voice_tx[] = {
     "handset-mic", 
     "speaker-mic", 
     "headset-mic", 
-    "bt-sco-mic", 
-    "voice-tty-headset-mic",
+    "bt-sco-headset-mic", 
+    "tty-headset-mic",
 };
-static int voice_rx_dev_id[] = { 0, 2, 6, 29, 8, };
-static int voice_tx_dev_id[] = { 1, 5, 4, 30, 7, };
+static int voice_rx_dev_id[] = { 0, 2, 6, 8, };
+static int voice_tx_dev_id[] = { 1, 5, 4, 7, };
 
 static int msm_voice_get_rx(struct snd_kcontrol *kcontrol,
 			struct snd_ctl_elem_value *ucontrol)
@@ -1401,18 +1401,12 @@ static struct snd_kcontrol_new snd_msm_extend_controls[] = {
 	MSM_EXT("audio-record bt-sco",
 			msm_s_route_info, msm_s_route_get_tx, msm_s_route_put_tx, 
 			ROUTE_ELEM_ENCODE(SESSION_DSP_AUDIO_0, IDX_PCM_TX)),
-	MSM_EXT("audio-record fm-radio",
-			msm_s_route_info, msm_s_route_get_tx, msm_s_route_put_tx, 
-			ROUTE_ELEM_ENCODE(SESSION_DSP_AUDIO_0, IDX_MI2S_TX)),
 	MSM_EXT("low-latency-record",
 			msm_s_route_info, msm_s_route_get_tx, msm_s_route_put_tx, 
 			ROUTE_ELEM_ENCODE(SESSION_DSP_AUDIO_1, IDX_PRIMARY_I2S_TX)),
 	MSM_EXT("low-latency-record bt-sco",
 			msm_s_route_info, msm_s_route_get_tx, msm_s_route_put_tx, 
 			ROUTE_ELEM_ENCODE(SESSION_DSP_AUDIO_1, IDX_PCM_TX)),
-	MSM_EXT("low-latency-record fm-radio",
-			msm_s_route_info, msm_s_route_get_tx, msm_s_route_put_tx, 
-			ROUTE_ELEM_ENCODE(SESSION_DSP_AUDIO_1, IDX_MI2S_TX)),
 	SOC_ENUM_EXT("voice-rx", snd_msm_extend_enum[0], 
 	        msm_voice_get_rx, msm_voice_put_rx),
 	SOC_ENUM_EXT("voice-tx", snd_msm_extend_enum[1], 
