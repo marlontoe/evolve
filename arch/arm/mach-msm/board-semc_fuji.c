@@ -115,6 +115,9 @@
 
 #include <mach/simple_remote_msm8x60_pf.h>
 
+//MSM8x60 Thermal Management
+#include <linux/msm_tsens.h>
+
 #include "devices.h"
 #include "devices-msm8x60.h"
 #include <mach/cpuidle.h>
@@ -2392,7 +2395,7 @@ static struct msm_i2c_ssbi_platform_data msm_ssbi3_pdata = {
 #define MSM_FB_SIZE roundup(MSM_FB_PRIM_BUF_SIZE + MSM_FB_EXT_BUF_SIZE + \
 				MSM_FB_DSUB_PMEM_ADDER, 4096)
 
-#define MSM_PMEM_SF_SIZE 0x6E00000 /* 110 Mbytes */
+#define MSM_PMEM_SF_SIZE 0x5000000 /* 80 Mbytes */
 #define MSM_HDMI_PRIM_PMEM_SF_SIZE 0x8000000 /* 128 Mbytes */
 
 #ifdef CONFIG_FB_MSM_HDMI_AS_PRIMARY
@@ -2440,7 +2443,7 @@ unsigned char hdmi_is_primary;
 #endif
 
 #define MSM_MM_FW_SIZE		(0x200000 - MSM_ION_HOLE_SIZE) /*(2MB-128KB)*/
-#define MSM_ION_MM_SIZE		0x3E00000  /* (62MB) */
+#define MSM_ION_MM_SIZE		0x4000000  /* (64MB) */
 #define MSM_ION_MFC_SIZE	SZ_8K
 
 #define MSM_MM_FW_BASE		MSM_SMI_BASE
@@ -2456,8 +2459,11 @@ unsigned char hdmi_is_primary;
 #define SECURE_SIZE	(MSM_ION_MM_SIZE + MSM_MM_FW_SIZE)
 #endif
 
-#define MSM_ION_SF_SIZE         0x5C00000 /* 80MB */
-#define MSM_ION_CAMERA_SIZE     0x3800000  /*56MB*/
+#define MSM_ION_SF_SIZE         0x5200000 /* 82MB */
+#define MSM_ION_CAMERA_SIZE     0x4000000 /*64MB*/
+
+//#define MSM_ION_SF_SIZE         0x9000000 /* 112MB -> 144MB */
+//#define MSM_ION_CAMERA_SIZE     0x7000000 /* 80MB -> 112MB */
 
 #ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
 #define MSM_ION_WB_SIZE		0xC00000 /* 12MB */
@@ -3609,10 +3615,19 @@ static struct platform_device *early_devices[] __initdata = {
 	&msm_device_dmov_adm1,
 };
 
+static struct tsens_platform_data fuji_tsens_pdata  = {
+	.tsens_factor    = 1000,
+	.hw_type    = MSM_8660,
+	.tsens_num_sensor  = 6,
+	.slope       = 702,
+};
+
+/*
 static struct platform_device msm_tsens_device = {
 	.name   = "tsens-tm",
 	.id = -1,
 };
+*/
 
 #ifdef CONFIG_SENSORS_MSM_ADC
 
@@ -3989,80 +4004,10 @@ static struct platform_device ramdumplog_device = {
 };
 #endif
 
-#ifdef CONFIG_SND_SOC_MSM8X60_FUJI
-struct platform_device msm_pcm_dsp1 = {
-	.name   = "msm-dsp-audio",
-	.id     = 1,
-};
-struct platform_device msm_cpu_dai1 = {
-	.name   = "msm-cpu-dai",
-	.id     = 1,
-};
-struct platform_device msm_codec_dai1 = {
-	.name   = "msm-codec-dai",
-	.id     = 1,
-};
-struct platform_device msm_pcm_dsp2 = {
-	.name   = "msm-dsp-audio",
-	.id     = 2,
-};
-struct platform_device msm_cpu_dai2 = {
-	.name   = "msm-cpu-dai",
-	.id     = 2,
-};
-struct platform_device msm_codec_dai2 = {
-	.name   = "msm-codec-dai",
-	.id     = 2,
-};
-struct platform_device msm_compr_dsp = {
-	.name	= "msm-compr-dsp",
-	.id	= -1,
-};
-struct platform_device msm_compr_dai = {
-	.name   = "msm-compr-dai",
-	.id     = -1,
-};
-struct platform_device msm_codec_dai3 = {
-	.name   = "msm-codec-dai",
-	.id     = 3,
-};
-struct platform_device msm_pcm_voice = {
-	.name	= "msm-pcm-voice",
-	.id	= -1,
-};
-struct platform_device msm_cpu_dai4 = {
-	.name   = "msm-cpu-dai",
-	.id     = 4,
-};
-struct platform_device msm_codec_dai4 = {
-	.name   = "msm-codec-dai",
-	.id     = 4,
-};
-#endif
-
 static struct platform_device *asoc_devices[] __initdata = {
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
-#ifdef CONFIG_SND_SOC_MSM8X60_FUJI
-    &msm_pcm_dsp1,
-	&msm_cpu_dai1,
-	&msm_codec_dai1,
-	&msm_pcm_dsp2,
-	&msm_cpu_dai2,
-	&msm_codec_dai2,
-	&msm_compr_dsp,
-	&msm_compr_dai,
-	&msm_codec_dai3,
-	&msm_pcm_voice,
-	&msm_cpu_dai4,
-	&msm_codec_dai4,
-#endif
-#ifdef CONFIG_MSM_8x60_VOIP
-	&asoc_msm_mvs,
-	&asoc_mvs_dai0,
-	&asoc_mvs_dai1,
-#endif
 };
 
 #ifdef CONFIG_QSEECOM
@@ -4331,7 +4276,7 @@ static struct platform_device *fuji_devices[] __initdata = {
 #ifdef CONFIG_SEMC_CHARGER_CRADLE_ARCH
 	&semc_chg_cradle,
 #endif
-	&msm_tsens_device,
+	//&msm_tsens_device,
 	&msm8660_rpm_device,
 #ifdef CONFIG_FUJI_GPIO_KEYPAD
 	&gpio_key_device,
@@ -4351,6 +4296,11 @@ static struct platform_device *fuji_devices[] __initdata = {
 #endif
 #ifdef CONFIG_RAMDUMP_CRASH_LOGS
 	&ramdumplog_device,
+#endif
+#ifdef CONFIG_MSM_8x60_VOIP
+	&asoc_msm_mvs,
+	&asoc_mvs_dai0,
+	&asoc_mvs_dai1,
 #endif
 #ifdef CONFIG_SONY_SSM
        &sony_ssm_device,
@@ -8075,6 +8025,10 @@ static void __init msm8x60_init(struct msm_board_data *board_data)
 	uint32_t soc_platform_version;
 
 	pmic_reset_irq = PM8058_IRQ_BASE + PM8058_RESOUT_IRQ;
+
+	//Start MSM Thermal Management
+	msm_tsens_early_init(&fuji_tsens_pdata);
+
 	/*
 	 * Initialize RPM first as other drivers and devices may need
 	 * it for their initialization.
