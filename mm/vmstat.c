@@ -1152,7 +1152,7 @@ static void vmstat_update(struct work_struct *w)
 		round_jiffies_relative(sysctl_stat_interval));
 }
 
-static void __cpuinit start_cpu_timer(int cpu)
+static void start_cpu_timer(int cpu)
 {
 	struct delayed_work *work = &per_cpu(vmstat_work, cpu);
 
@@ -1164,7 +1164,7 @@ static void __cpuinit start_cpu_timer(int cpu)
  * Use the cpu notifier to insure that the thresholds are recalculated
  * when necessary.
  */
-static int __cpuinit vmstat_cpuup_callback(struct notifier_block *nfb,
+static int vmstat_cpuup_callback(struct notifier_block *nfb,
 		unsigned long action,
 		void *hcpu)
 {
@@ -1196,7 +1196,7 @@ static int __cpuinit vmstat_cpuup_callback(struct notifier_block *nfb,
 	return NOTIFY_OK;
 }
 
-static struct notifier_block __cpuinitdata vmstat_notifier =
+static struct notifier_block vmstat_notifier =
 	{ &vmstat_cpuup_callback, NULL, 0 };
 #endif
 
@@ -1223,7 +1223,6 @@ module_init(setup_vmstat)
 #if defined(CONFIG_DEBUG_FS) && defined(CONFIG_COMPACTION)
 #include <linux/debugfs.h>
 
-static struct dentry *extfrag_debug_root;
 
 /*
  * Return an index indicating how much of the available free memory is
@@ -1361,19 +1360,24 @@ static const struct file_operations extfrag_file_ops = {
 
 static int __init extfrag_debug_init(void)
 {
+	struct dentry *extfrag_debug_root;
+
 	extfrag_debug_root = debugfs_create_dir("extfrag", NULL);
 	if (!extfrag_debug_root)
 		return -ENOMEM;
 
 	if (!debugfs_create_file("unusable_index", 0444,
 			extfrag_debug_root, NULL, &unusable_file_ops))
-		return -ENOMEM;
+		goto fail;
 
 	if (!debugfs_create_file("extfrag_index", 0444,
 			extfrag_debug_root, NULL, &extfrag_file_ops))
-		return -ENOMEM;
+		goto fail;
 
 	return 0;
+fail:
+	debugfs_remove_recursive(extfrag_debug_root);
+	return -ENOMEM;
 }
 
 module_init(extfrag_debug_init);

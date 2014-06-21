@@ -876,6 +876,7 @@ static void check_stack_usage(void)
 	static DEFINE_SPINLOCK(low_water_lock);
 	static int lowest_to_date = THREAD_SIZE;
 	unsigned long free;
+	int islower = false;
 
 	free = stack_not_used(current);
 
@@ -884,12 +885,16 @@ static void check_stack_usage(void)
 
 	spin_lock(&low_water_lock);
 	if (free < lowest_to_date) {
+		lowest_to_date = free;
+		islower = true;
+	}
+	spin_unlock(&low_water_lock);
+
+	if (islower) {
 		printk(KERN_WARNING "%s used greatest stack depth: %lu bytes "
 				"left\n",
 				current->comm, free);
-		lowest_to_date = free;
 	}
-	spin_unlock(&low_water_lock);
 }
 #else
 static inline void check_stack_usage(void) {}
@@ -1026,7 +1031,7 @@ void do_exit(long code)
 	/*
 	 * Make sure we are holding no locks:
 	 */
-	debug_check_no_locks_held(tsk);
+	debug_check_no_locks_held();
 	/*
 	 * We can do this unlocked here. The futex code uses this flag
 	 * just to verify whether the pi state cleanup has been done

@@ -492,11 +492,11 @@ static int footswitch_probe(struct platform_device *pdev)
 		return -ENODEV;
 
 	init_data = pdev->dev.platform_data;
-	driver_data = init_data->driver_data;
-	fs = &footswitches[pdev->id];
-	fs->clk_data = driver_data->clks;
-	fs->bus_port0 = driver_data->bus_port0;
-	fs->bus_port1 = driver_data->bus_port1;
+    driver_data = init_data->driver_data;
+    fs = &footswitches[pdev->id];
+    fs->clk_data = driver_data->clks;
+    fs->bus_port0 = driver_data->bus_port0;
+    fs->bus_port1 = driver_data->bus_port1;
 
 	for (clock = fs->clk_data; clock->name; clock++) {
 		clock->clk = clk_get(&pdev->dev, clock->name);

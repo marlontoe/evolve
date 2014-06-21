@@ -2414,7 +2414,7 @@ unsigned char hdmi_is_primary;
 #endif  /* CONFIG_FB_MSM_OVERLAY1_WRITEBACK */
 
 #define MSM_PMEM_KERNEL_EBI1_SIZE  0x3BC000
-#define MSM_PMEM_ADSP_SIZE         0x4200000
+#define MSM_PMEM_ADSP_SIZE         0x4000000
 #define MSM_PMEM_CAMERA_SIZE       0x5000000
 #define MSM_PMEM_AUDIO_SIZE        0x4CF000
 #define MSM_PMEM_SWIQI_SIZE        0x2000000
@@ -2456,11 +2456,11 @@ unsigned char hdmi_is_primary;
 #define SECURE_SIZE	(MSM_ION_MM_SIZE + MSM_MM_FW_SIZE)
 #endif
 
-//#define MSM_ION_SF_SIZE                0x7000000 /* 112MB */
-//#define MSM_ION_CAMERA_SIZE     0x5000000 /*80MB*/
+#define MSM_ION_SF_SIZE         0x7000000 /* 112MB */
+#define MSM_ION_CAMERA_SIZE     0x2200000 /*34MB*/
 
-#define MSM_ION_SF_SIZE         0x9000000 /* 112MB -> 144MB */
-#define MSM_ION_CAMERA_SIZE     0x7000000 /* 80MB -> 112MB */
+//#define MSM_ION_SF_SIZE         0x9000000 /* 112MB -> 144MB */
+//#define MSM_ION_CAMERA_SIZE     0x7000000 /* 80MB -> 112MB */
 
 #ifdef CONFIG_FB_MSM_OVERLAY1_WRITEBACK
 #define MSM_ION_WB_SIZE		0xC00000 /* 12MB */
@@ -3992,10 +3992,80 @@ static struct platform_device ramdumplog_device = {
 };
 #endif
 
+#ifdef CONFIG_SND_SOC_MSM8X60_FUJI
+struct platform_device msm_pcm_dsp1 = {
+	.name   = "msm-dsp-audio",
+	.id     = 1,
+};
+struct platform_device msm_cpu_dai1 = {
+	.name   = "msm-cpu-dai",
+	.id     = 1,
+};
+struct platform_device msm_codec_dai1 = {
+	.name   = "msm-codec-dai",
+	.id     = 1,
+};
+struct platform_device msm_pcm_dsp2 = {
+	.name   = "msm-dsp-audio",
+	.id     = 2,
+};
+struct platform_device msm_cpu_dai2 = {
+	.name   = "msm-cpu-dai",
+	.id     = 2,
+};
+struct platform_device msm_codec_dai2 = {
+	.name   = "msm-codec-dai",
+	.id     = 2,
+};
+struct platform_device msm_compr_dsp = {
+	.name	= "msm-compr-dsp",
+	.id	= -1,
+};
+struct platform_device msm_compr_dai = {
+	.name   = "msm-compr-dai",
+	.id     = -1,
+};
+struct platform_device msm_codec_dai3 = {
+	.name   = "msm-codec-dai",
+	.id     = 3,
+};
+struct platform_device msm_pcm_voice = {
+	.name	= "msm-pcm-voice",
+	.id	= -1,
+};
+struct platform_device msm_cpu_dai4 = {
+	.name   = "msm-cpu-dai",
+	.id     = 4,
+};
+struct platform_device msm_codec_dai4 = {
+	.name   = "msm-codec-dai",
+	.id     = 4,
+};
+#endif
+
 static struct platform_device *asoc_devices[] __initdata = {
 	&asoc_msm_pcm,
 	&asoc_msm_dai0,
 	&asoc_msm_dai1,
+#ifdef CONFIG_SND_SOC_MSM8X60_FUJI
+    &msm_pcm_dsp1,
+	&msm_cpu_dai1,
+	&msm_codec_dai1,
+	&msm_pcm_dsp2,
+	&msm_cpu_dai2,
+	&msm_codec_dai2,
+	&msm_compr_dsp,
+	&msm_compr_dai,
+	&msm_codec_dai3,
+	&msm_pcm_voice,
+	&msm_cpu_dai4,
+	&msm_codec_dai4,
+#endif
+#ifdef CONFIG_MSM_8x60_VOIP
+	&asoc_msm_mvs,
+	&asoc_mvs_dai0,
+	&asoc_mvs_dai1,
+#endif
 };
 
 #ifdef CONFIG_QSEECOM
@@ -4284,11 +4354,6 @@ static struct platform_device *fuji_devices[] __initdata = {
 #endif
 #ifdef CONFIG_RAMDUMP_CRASH_LOGS
 	&ramdumplog_device,
-#endif
-#ifdef CONFIG_MSM_8x60_VOIP
-	&asoc_msm_mvs,
-	&asoc_mvs_dai0,
-	&asoc_mvs_dai1,
 #endif
 #ifdef CONFIG_SONY_SSM
        &sony_ssm_device,
@@ -4966,7 +5031,11 @@ static struct pm8xxx_vibrator_platform_data pm8058_vib_pdata = {
 };
 
 static struct pm8xxx_rtc_platform_data pm8058_rtc_pdata = {
-	.rtc_write_enable       = false,
+#ifdef CONFIG_RTC_SEMC_ETS
+	.rtc_write_enable       = true,
+#else
+  	.rtc_write_enable       = false,
+#endif
 	.rtc_alarm_powerup	= false,
 };
 

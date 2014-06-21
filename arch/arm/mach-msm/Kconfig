@@ -1601,6 +1601,21 @@ config MSM_DALRPC_TEST
 	help
 	  Exercises DAL RPC calls to QDSP6.
 
+config MSM_MPDEC
+	bool "Enable kernel based mpdecision"
+	depends on MSM_SMP
+	default n
+	help
+	  This enables kernel based multi core control.
+	  (up/down hotplug based on load)
+
+config FORCE_FAST_CHARGE
+	bool "Force AC charge mode at will"
+	default n
+	help
+		A simple sysfs interface to force adapters that
+		are detected as USB to charge as AC.
+
 if CPU_FREQ_MSM
 
 config MSM_CPU_FREQ_SET_MIN_MAX
@@ -2437,23 +2452,6 @@ config PM8921_MIC_BIAS
         help
           Provides support for activate pm8921 mic bias driver used for
           primary and secondary mic.
-
-choice
-    prompt "SWIQI"
-    optional
-    default n
-    config SEMC_SWIQI
-        bool "Enable SWIQI"
-        default n
-        help
-          This enables SWIQI.
-
-    config SONY_SWIQI2
-        bool "Enable SWIQI2"
-        default n
-        help
-          This enables SWIQI2.
-endchoice
 
 config SIMPLE_REMOTE_PLATFORM
         bool "Simple Remote platform specific driver"

@@ -41,6 +41,17 @@ extern int freeze_kernel_threads(void);
 extern void thaw_processes(void);
 extern void thaw_kernel_threads(void);
 
+/*
+ * HACK: prevent sleeping while atomic warnings due to ARM signal handling
+ * disabling irqs
+ */
+static inline bool try_to_freeze_nowarn(void)
+{
+	if (likely(!freezing(current)))
+		return false;
+	return __refrigerator(false);
+}
+
 static inline bool try_to_freeze(void)
 {
 /* This causes problems for ARM targets and is a known
@@ -145,27 +156,19 @@ static inline int freezer_should_skip(struct task_struct *p)
 #define wait_event_freezable(wq, condition)				\
 ({									\
 	int __retval;							\
-	for (;;) {							\
-		__retval = wait_event_interruptible(wq, 		\
-				(condition) || freezing(current));	\
-		if (__retval || (condition))				\
-			break;						\
-		try_to_freeze();					\
-	}								\
+	freezer_do_not_count();						\
+	__retval = wait_event_interruptible(wq, (condition));		\
+	freezer_count();						\
 	__retval;							\
 })
 
 #define wait_event_freezable_timeout(wq, condition, timeout)		\
 ({									\
 	long __retval = timeout;					\
-	for (;;) {							\
-		__retval = wait_event_interruptible_timeout(wq,		\
-				(condition) || freezing(current),	\
-				__retval); 				\
-		if (__retval <= 0 || (condition))			\
-			break;						\
-		try_to_freeze();					\
-	}								\
+	freezer_do_not_count();						\
+	__retval = wait_event_interruptible_timeout(wq,	(condition),	\
+				__retval);				\
+	freezer_count();						\
 	__retval;							\
 })
 
