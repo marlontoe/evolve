@@ -89,19 +89,19 @@ static spinlock_t speedchange_cpumask_lock;
 #define DEFAULT_TIMER_RATE (20 * USEC_PER_MSEC)
 static unsigned long timer_rate;
 
-#define DEFAULT_UP_THRESHOLD 70
+#define DEFAULT_UP_THRESHOLD 95
 static unsigned long up_threshold;
 
 #define DEFAULT_DOWN_DIFFERENTIAL 20
 static unsigned long down_differential;
 
-#define DEFAULT_MIN_FREQ 300000
+#define DEFAULT_MIN_FREQ 192000
 static u64 allowed_min;
 
-#define DEFAULT_MAX_FREQ 2265600
+#define DEFAULT_MAX_FREQ 1512000
 static u64 allowed_max;
 
-#define DEFAULT_INTER_HIFREQ 1728000
+#define DEFAULT_INTER_HIFREQ 1512000
 static u64 inter_hifreq;
 
 #define DEFAULT_INTER_LOFREQ 300000
